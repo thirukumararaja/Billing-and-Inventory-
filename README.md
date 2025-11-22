@@ -89,6 +89,15 @@ Reactivates a cancelled subscription. Returns error if subscription is already a
 - **Backend**: Node.js, Express.js
 - **Testing**: Jest, Supertest
 - **Frontend**: HTML, CSS, JavaScript (Vanilla)
+- **Security**: express-rate-limit
+
+## Security
+
+The application includes the following security measures:
+
+- **Rate Limiting**: API endpoints are protected with rate limiting (100 requests per 15 minutes per IP address)
+- **Input Validation**: All endpoints validate input and return appropriate error messages
+- **Error Handling**: Proper error handling to prevent information leakage
 
 ## Future Enhancements
 
