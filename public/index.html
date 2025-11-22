@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Management - Billing & Inventory</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .subscriptions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+        
+        .subscription-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .subscription-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .subscription-card.cancelled {
+            opacity: 0.7;
+            background: #f5f5f5;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .plan-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-active {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .status-cancelled {
+            background: #f44336;
+            color: white;
+        }
+        
+        .card-details {
+            margin-bottom: 20px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .detail-label {
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .detail-value {
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .price {
+            font-size: 1.5em;
+            color: #667eea;
+        }
+        
+        .card-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-cancel {
+            background: #f44336;
+            color: white;
+        }
+        
+        .btn-cancel:hover:not(:disabled) {
+            background: #d32f2f;
+            transform: scale(1.05);
+        }
+        
+        .btn-reactivate {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .btn-reactivate:hover:not(:disabled) {
+            background: #388e3c;
+            transform: scale(1.05);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.2em;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .notification.success {
+            background: #4caf50;
+        }
+        
+        .notification.error {
+            background: #f44336;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .empty-state h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .empty-state p {
+            color: #666;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎫 Subscription Management</h1>
+            <p class="subtitle">Billing & Inventory System</p>
+        </header>
+        
+        <div id="subscriptions-container">
+            <div class="loading">Loading subscriptions...</div>
+        </div>
+    </div>
+    
+    <script>
+        let subscriptions = [];
+        
+        // Load subscriptions on page load
+        async function loadSubscriptions() {
+            try {
+                const response = await fetch('/api/subscriptions');
+                subscriptions = await response.json();
+                renderSubscriptions();
+            } catch (error) {
+                showNotification('Failed to load subscriptions', 'error');
+                console.error('Error loading subscriptions:', error);
+            }
+        }
+        
+        // Render subscriptions
+        function renderSubscriptions() {
+            const container = document.getElementById('subscriptions-container');
+            
+            if (subscriptions.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h2>No Subscriptions Found</h2>
+                        <p>You don't have any active subscriptions yet.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = `
+                <div class="subscriptions-grid">
+                    ${subscriptions.map(sub => createSubscriptionCard(sub)).join('')}
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+        
+        // Create subscription card HTML
+        function createSubscriptionCard(subscription) {
+            const isActive = subscription.status === 'active';
+            const statusClass = isActive ? 'status-active' : 'status-cancelled';
+            const cardClass = isActive ? '' : 'cancelled';
+            
+            return `
+                <div class="subscription-card ${cardClass}">
+                    <div class="card-header">
+                        <div class="plan-name">${subscription.planName}</div>
+                        <span class="status-badge ${statusClass}">${subscription.status}</span>
+                    </div>
+                    
+                    <div class="card-details">
+                        <div class="detail-row">
+                            <span class="detail-label">User ID:</span>
+                            <span class="detail-value">${subscription.userId}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Billing Cycle:</span>
+                            <span class="detail-value">${subscription.billingCycle}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Start Date:</span>
+                            <span class="detail-value">${subscription.startDate}</span>
+                        </div>
+                        ${subscription.cancelledDate ? `
+                            <div class="detail-row">
+                                <span class="detail-label">Cancelled Date:</span>
+                                <span class="detail-value">${new Date(subscription.cancelledDate).toLocaleDateString()}</span>
+                            </div>
+                        ` : ''}
+                        <div class="detail-row">
+                            <span class="detail-label">Price:</span>
+                            <span class="detail-value price">$${subscription.price}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-actions">
+                        ${isActive ? `
+                            <button class="btn btn-cancel" onclick="cancelSubscription('${subscription.id}')">
+                                Cancel Subscription
+                            </button>
+                        ` : `
+                            <button class="btn btn-reactivate" onclick="reactivateSubscription('${subscription.id}')">
+                                Reactivate
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Cancel subscription
+        async function cancelSubscription(id) {
+            if (!confirm('Are you sure you want to cancel this subscription?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/subscriptions/${id}/cancel`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showNotification('Subscription cancelled successfully', 'success');
+                    await loadSubscriptions();
+                } else {
+                    showNotification(data.error || 'Failed to cancel subscription', 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to cancel subscription', 'error');
+                console.error('Error cancelling subscription:', error);
+            }
+        }
+        
+        // Reactivate subscription
+        async function reactivateSubscription(id) {
+            if (!confirm('Do you want to reactivate this subscription?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/subscriptions/${id}/reactivate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showNotification('Subscription reactivated successfully', 'success');
+                    await loadSubscriptions();
+                } else {
+                    showNotification(data.error || 'Failed to reactivate subscription', 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to reactivate subscription', 'error');
+                console.error('Error reactivating subscription:', error);
+            }
+        }
+        
+        // Show notification
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        // Load subscriptions when page loads
+        loadSubscriptions();
+    </script>
+</body>
+</html>
